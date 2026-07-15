@@ -1,0 +1,20 @@
+# Environment files
+backend/.env
+frontend/.env
+
+# Python
+backend/venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+node_modules/
+dist/
+
+# Logs
+npm-debug.log*
+
+# VS Code
+.vscode/

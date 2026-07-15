@@ -1,0 +1,320 @@
+{
+    "info": {
+      "name": "AI-First CRM",
+      "description": "HCP interaction logging API — auth, HCPs, interactions, and the AI chat assistant.",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+      { "key": "base_url", "value": "http://localhost:8000/api/v1" },
+      { "key": "access_token", "value": "" },
+      { "key": "refresh_token", "value": "" },
+      { "key": "hcp_id", "value": "" },
+      { "key": "interaction_id", "value": "" },
+      { "key": "conversation_id", "value": "" }
+    ],
+    "auth": {
+      "type": "bearer",
+      "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+    },
+    "item": [
+      {
+        "name": "Auth",
+        "item": [
+          {
+            "name": "Register",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/auth/register",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"rep@example.com\",\n  \"password\": \"SecurePass123\",\n  \"full_name\": \"Asha Rao\",\n  \"territory\": \"Hyderabad South\"\n}"
+              },
+              "auth": { "type": "noauth" }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  const data = pm.response.json();",
+                    "  pm.collectionVariables.set('access_token', data.access_token);",
+                    "  pm.collectionVariables.set('refresh_token', data.refresh_token);",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Login",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/auth/login",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"email\": \"rep@example.com\",\n  \"password\": \"SecurePass123\"\n}"
+              },
+              "auth": { "type": "noauth" }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  const data = pm.response.json();",
+                    "  pm.collectionVariables.set('access_token', data.access_token);",
+                    "  pm.collectionVariables.set('refresh_token', data.refresh_token);",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Refresh Token",
+            "request": {
+              "method": "POST",
+              "url": {
+                "raw": "{{base_url}}/auth/refresh?refresh_token={{refresh_token}}",
+                "host": ["{{base_url}}"],
+                "path": ["auth", "refresh"],
+                "query": [{ "key": "refresh_token", "value": "{{refresh_token}}" }]
+              },
+              "auth": { "type": "noauth" }
+            }
+          },
+          {
+            "name": "Current User",
+            "request": { "method": "GET", "url": "{{base_url}}/auth/me" }
+          }
+        ]
+      },
+      {
+        "name": "HCPs",
+        "item": [
+          {
+            "name": "Create HCP",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/hcps",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"full_name\": \"Dr. Priya Mehta\",\n  \"specialization\": \"Cardiology\",\n  \"hospital_name\": \"Apollo Hospitals\",\n  \"phone\": \"+91-9876543210\",\n  \"email\": \"priya.mehta@example.com\",\n  \"city\": \"Hyderabad\",\n  \"tier\": \"A\",\n  \"notes\": \"Prefers morning visits.\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  pm.collectionVariables.set('hcp_id', pm.response.json().id);",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "List HCPs",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/hcps?page=1&page_size=20&search=Mehta&tier=A&sort_by=created_at&sort_dir=desc",
+                "host": ["{{base_url}}"],
+                "path": ["hcps"],
+                "query": [
+                  { "key": "page", "value": "1" },
+                  { "key": "page_size", "value": "20" },
+                  { "key": "search", "value": "Mehta" },
+                  { "key": "tier", "value": "A" },
+                  { "key": "sort_by", "value": "created_at" },
+                  { "key": "sort_dir", "value": "desc" }
+                ]
+              }
+            }
+          },
+          {
+            "name": "Get HCP",
+            "request": { "method": "GET", "url": "{{base_url}}/hcps/{{hcp_id}}" }
+          },
+          {
+            "name": "Update HCP",
+            "request": {
+              "method": "PUT",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/hcps/{{hcp_id}}",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"tier\": \"B\",\n  \"notes\": \"Updated preference: afternoon visits.\"\n}"
+              }
+            }
+          },
+          {
+            "name": "Delete HCP",
+            "request": { "method": "DELETE", "url": "{{base_url}}/hcps/{{hcp_id}}" }
+          }
+        ]
+      },
+      {
+        "name": "Interactions",
+        "item": [
+          {
+            "name": "Create Interaction",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/interactions",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"hcp_id\": \"{{hcp_id}}\",\n  \"interaction_type\": \"visit\",\n  \"visit_date\": \"2026-07-14T10:30:00\",\n  \"follow_up_date\": \"2026-07-21\",\n  \"discussion_summary\": \"Discussed new dosing guidance for Cardiozen.\",\n  \"products_discussed\": [\"Cardiozen\"],\n  \"samples_given\": 10,\n  \"sentiment\": \"positive\",\n  \"next_action\": \"Send updated clinical trial data\",\n  \"notes\": \"Very receptive, wants a lunch-and-learn next month.\",\n  \"created_via\": \"form\"\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 201) {",
+                    "  pm.collectionVariables.set('interaction_id', pm.response.json().id);",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "List Interactions",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "{{base_url}}/interactions?page=1&page_size=20&sort_by=visit_date&sort_dir=desc",
+                "host": ["{{base_url}}"],
+                "path": ["interactions"],
+                "query": [
+                  { "key": "page", "value": "1" },
+                  { "key": "page_size", "value": "20" },
+                  { "key": "sort_by", "value": "visit_date" },
+                  { "key": "sort_dir", "value": "desc" },
+                  { "key": "hcp_id", "value": "", "disabled": true },
+                  { "key": "interaction_type", "value": "", "disabled": true },
+                  { "key": "sentiment", "value": "", "disabled": true },
+                  { "key": "date_from", "value": "", "disabled": true },
+                  { "key": "date_to", "value": "", "disabled": true },
+                  { "key": "search", "value": "", "disabled": true }
+                ]
+              }
+            }
+          },
+          {
+            "name": "Dashboard Summary",
+            "request": {
+              "method": "GET",
+              "url": "{{base_url}}/interactions/dashboard/summary?mine_only=true"
+            }
+          },
+          {
+            "name": "Get Interaction",
+            "request": { "method": "GET", "url": "{{base_url}}/interactions/{{interaction_id}}" }
+          },
+          {
+            "name": "Update Interaction",
+            "request": {
+              "method": "PUT",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/interactions/{{interaction_id}}",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"sentiment\": \"neutral\",\n  \"next_action\": \"Follow up by phone next week\"\n}"
+              }
+            }
+          },
+          {
+            "name": "Interaction History",
+            "request": { "method": "GET", "url": "{{base_url}}/interactions/{{interaction_id}}/history" }
+          },
+          {
+            "name": "Delete Interaction",
+            "request": { "method": "DELETE", "url": "{{base_url}}/interactions/{{interaction_id}}" }
+          }
+        ]
+      },
+      {
+        "name": "Chat",
+        "item": [
+          {
+            "name": "Send Message",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"Log a visit with Dr. Mehta today, discussed Cardiozen dosing, gave 10 samples, positive sentiment\",\n  \"conversation_id\": null\n}"
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code === 200) {",
+                    "  pm.collectionVariables.set('conversation_id', pm.response.json().conversation_id);",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "name": "Continue Conversation",
+            "request": {
+              "method": "POST",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "url": "{{base_url}}/chat",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"Also schedule a follow-up for next Tuesday\",\n  \"conversation_id\": \"{{conversation_id}}\"\n}"
+              }
+            }
+          },
+          {
+            "name": "List Conversations",
+            "request": { "method": "GET", "url": "{{base_url}}/history" }
+          },
+          {
+            "name": "Get Conversation",
+            "request": { "method": "GET", "url": "{{base_url}}/history/{{conversation_id}}" }
+          }
+        ]
+      },
+      {
+        "name": "System",
+        "item": [
+          {
+            "name": "Health Check",
+            "request": {
+              "method": "GET",
+              "url": {
+                "raw": "http://localhost:8000/health",
+                "host": ["http://localhost:8000"],
+                "path": ["health"]
+              },
+              "auth": { "type": "noauth" }
+            }
+          }
+        ]
+      }
+    ]
+  }
+  

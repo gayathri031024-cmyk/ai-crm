@@ -53,7 +53,7 @@ export default function MessageBubble({ message, toolSuccess }: MessageBubblePro
                 color: "#065F46",
               }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{message.content}</ReactMarkdown>
             </Box>
           </Box>
           <Typography variant="caption" sx={{ display: "block", mt: 0.5, ml: 3.5, color: "#059669" }}>
@@ -93,7 +93,7 @@ export default function MessageBubble({ message, toolSuccess }: MessageBubblePro
             fontSize: 14.5,
           }}
         >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{message.content}</ReactMarkdown>
         </Box>
         <Typography
           variant="caption"

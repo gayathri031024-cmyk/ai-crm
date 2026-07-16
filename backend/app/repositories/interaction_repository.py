@@ -22,7 +22,13 @@ class InteractionRepository:
     def delete(self, interaction: Interaction) -> None:
         self.db.delete(interaction)
         self.db.commit()
-
+        
+    def get_latest_for_user(self, user_id: str, hcp_id: str | None = None) -> Interaction | None:
+        """Returns the most recent interaction logged by this user, optionally scoped to one HCP."""
+        query = self.db.query(Interaction).filter(Interaction.user_id == user_id)
+        if hcp_id:
+            query = query.filter(Interaction.hcp_id == hcp_id)
+        return query.order_by(Interaction.visit_date.desc()).first()
     def list(
         self,
         page: int = 1,

@@ -79,7 +79,7 @@ def get_interaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return InteractionService(db).get_interaction_or_404(interaction_id)
+    return InteractionService(db).get_interaction_or_404(interaction_id, current_user.id)
 
 
 @router.put("/{interaction_id}", response_model=InteractionOut)
@@ -89,7 +89,9 @@ def update_interaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return InteractionService(db).update_interaction(
+    service = InteractionService(db)
+    service.get_interaction_or_404(interaction_id, current_user.id)
+    return service.update_interaction(
         interaction_id, payload, changed_by=current_user.id, source=ChangeSource.form
     )
 
@@ -100,7 +102,9 @@ def delete_interaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    InteractionService(db).delete_interaction(interaction_id)
+    service = InteractionService(db)
+    service.get_interaction_or_404(interaction_id, current_user.id)
+    service.delete_interaction(interaction_id)
 
 
 @router.get("/{interaction_id}/history", response_model=list[InteractionHistoryOut])

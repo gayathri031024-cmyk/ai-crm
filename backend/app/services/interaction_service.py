@@ -48,12 +48,15 @@ class InteractionService:
         )
         return self.repo.create(interaction)
 
-    def get_interaction_or_404(self, interaction_id: str) -> Interaction:
+    def get_interaction_or_404(self, interaction_id: str, requesting_user_id: str | None = None) -> Interaction:
         interaction = self.repo.get(interaction_id)
         if not interaction:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interaction not found")
-        return interaction
+        if requesting_user_id is not None and interaction.user_id != requesting_user_id:
 
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interaction not found")
+        return interaction
+    
     def update_interaction(
         self,
         interaction_id: str,

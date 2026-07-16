@@ -82,7 +82,7 @@ export default function LogInteractionForm({ editingInteraction, onDone }: LogIn
   useEffect(() => {
     for (let i = chatMessages.length - 1; i >= 0; i--) {
       const m = chatMessages[i];
-      if (m.role === "tool" && m.tool_name === "log_interaction") {
+      if (m.role === "tool" && (m.tool_name === "log_interaction" || m.tool_name === "edit_interaction")) {
         const output = m.tool_output as { status?: string; data?: Record<string, any> } | null;
         if (output?.status === "ok" && output.data && m.id !== appliedMessageIdRef.current) {
           appliedMessageIdRef.current = m.id;

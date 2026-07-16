@@ -41,7 +41,11 @@ export default function HcpAutocomplete({ value, onChange, error, helperText }: 
       getOptionLabel={(o) => `${o.full_name}${o.hospital_name ? " · " + o.hospital_name : ""}`}
       isOptionEqualToValue={(o, v) => o.id === v.id}
       loading={loading}
-      onInputChange={(_, val) => setInputValue(val)}
+      onInputChange={(_, val, reason) => {
+        if (reason === "input") {
+          setInputValue(val);
+        }
+      }}
       onChange={(_, newValue) => onChange(newValue?.id ?? "")}
       renderInput={(params) => (
         <TextField

@@ -10,17 +10,18 @@ An AI-first CRM for pharma/med-device field reps to log **HCP (Healthcare Profes
 ## Table of Contents
 
 1. [Architecture](#architecture)
-2. [Prerequisites](#prerequisites)
-3. [Backend Setup](#backend-setup)
-4. [Database & Migrations](#database--migrations)
-5. [Frontend Setup](#frontend-setup)
-6. [Running Everything](#running-everything)
-7. [Environment Variables](#environment-variables)
-8. [API Reference](#api-reference)
-9. [Sample Requests & Responses](#sample-requests--responses)
-10. [Postman Collection](#postman-collection)
-11. [Project Structure](#project-structure)
-12. [Troubleshooting](#troubleshooting)
+2. [LangGraph Agent & Tools](#langgraph-agent--tools)
+3. [Prerequisites](#prerequisites)
+4. [Backend Setup](#backend-setup)
+5. [Database & Migrations](#database--migrations)
+6. [Frontend Setup](#frontend-setup)
+7. [Running Everything](#running-everything)
+8. [Environment Variables](#environment-variables)
+9. [API Reference](#api-reference)
+10. [Sample Requests & Responses](#sample-requests--responses)
+11. [Postman Collection](#postman-collection)
+12. [Project Structure](#project-structure)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -45,6 +46,20 @@ Two ways to log an interaction, one data model:
 
 - **Structured Form** → `POST /api/v1/interactions` directly.
 - **AI Chat** → `POST /api/v1/chat` → LangGraph agent resolves the HCP, extracts fields from natural language, and calls the same interaction-logging tool under the hood. Every interaction created this way is tagged `created_via: "ai_chat"` and shows a badge on the timeline.
+
+## LangGraph Agent & Tools
+
+The LangGraph agent (`backend/app/agents/graph.py`) runs a loop: it sends the full conversation history plus all 5 tool schemas to Groq on every turn. If the model responds with a tool call, the agent executes it against the database via `app/tools/crm_tools.py`, appends the result as a tool message, and loops back to the model — up to `MAX_TOOL_ITERATIONS` (4) times — so the model can react to what happened (e.g. confirm a save, or ask a clarifying question) before producing its final natural-language reply. This lets a rep either fill out the structured form or just describe a visit conversationally, with both paths landing in the same `interactions` table.
+
+| Tool | Purpose |
+|---|---|
+| `log_interaction` | Creates a new structured interaction record from natural language. The LLM extracts the HCP name, interaction type, date, products discussed, samples given, sentiment, follow-up date, and next action from the user's free-text message, resolves relative dates ("today", "next Friday") into ISO dates itself, and calls this tool with the structured fields. The tool resolves the HCP by name (asking for clarification if ambiguous or not found) and writes the interaction. |
+| `edit_interaction` | Modifies an already-logged interaction (e.g. "Actually it was 10 samples, not 5"). Resolves which interaction to edit either by an explicit interaction ID or by finding the user's most recent interaction with the mentioned HCP (or their most recent interaction overall if no HCP is named), then applies only the fields the user actually mentioned changing. |
+| `search_hcp` | Searches HCPs by name, hospital, city, or specialization and returns matching records. |
+| `schedule_follow_up` | Sets or moves the follow-up date on an existing interaction, resolving the target interaction the same way `edit_interaction` does. |
+| `generate_visit_summary` | Produces a readable recap of recent interactions for a given HCP, most recent first. |
+
+All five tool schemas are Pydantic models (`app/tools/schemas.py`) that double as the JSON schema sent to Groq and as runtime validation when a tool call comes back — see `app/tools/registry.py` for how they're wired together and dispatched by name.
 
 ## Prerequisites
 
@@ -130,11 +145,18 @@ First run: open http://localhost:5173/register to create a rep account, then log
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifetime | `60` |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token lifetime | `7` |
 | `GROQ_API_KEY` | API key for Groq (powers the chat assistant) | — |
-| `PRIMARY_MODEL` | Primary Groq model | `gemma2-9b-it` |
-| `BACKUP_MODEL` | Fallback Groq model | `llama-3.3-70b-versatile` |
+| `PRIMARY_MODEL` | Primary Groq model | `llama-3.3-70b-versatile` |
+| `BACKUP_MODEL` | Fallback Groq model | `openai/gpt-oss-120b` |
 | `APP_ENV` | `development` \| `production` | `development` |
 | `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:5173` |
 | `LOG_LEVEL` | Python logging level | `INFO` |
+
+> **Note on model choice:** The original spec for this project referenced `gemma2-9b-it`.
+> That model was deprecated by Groq on Oct 8, 2025, and is no longer callable via their API.
+> This project uses `llama-3.3-70b-versatile` as the primary model instead (with
+> `openai/gpt-oss-120b` as an automatic fallback on rate limits/errors — see
+> `app/agents/groq_client.py`), since it's a current, actively-supported Groq model with
+> reliable multi-tool function-calling support.
 
 ### Frontend (`frontend/.env`)
 
@@ -276,7 +298,7 @@ Full interactive docs (request/response schemas, try-it-out) are always availabl
       "content": "Logged your visit with Dr. Mehta — Cardiozen dosing discussed, 10 samples given, sentiment marked positive. Anything else you'd like to add?",
       "tool_name": null,
       "tool_output": null,
-      "model_used": "gemma2-9b-it",
+      "model_used": "llama-3.3-70b-versatile",
       "created_at": "2026-07-14T10:40:02"
     }
   ]
@@ -347,4 +369,5 @@ ai-crm/
 - **401 on every request after login works fine at first** — your access token expired; the frontend auto-refreshes using the refresh token via an axios interceptor, so this should be transparent. If it isn't, check that `JWT_SECRET_KEY` didn't change between backend restarts (that invalidates all existing tokens).
 - **CORS errors in the browser console** — make sure `CORS_ORIGINS` in `backend/.env` includes `http://localhost:5173`.
 - **Chat replies are empty or error out** — verify `GROQ_API_KEY` is set and valid, and that your Groq account has access to the configured `PRIMARY_MODEL`.
+- **Chat tool-calling seems inconsistent or a tool never fires** — check the `model_used` column in `ai_messages` for that turn, and check backend logs for `ai_crm.groq` entries (`groq.request`/`groq.response`) to see which model actually served the request and whether it returned any `tool_calls`. Groq periodically deprecates models (see the note above), which can silently degrade tool-calling quality if `PRIMARY_MODEL` becomes stale.
 - **`ModuleNotFoundError` on backend start** — reinstall dependencies with `pip install -r requirements.txt` inside an active virtualenv.

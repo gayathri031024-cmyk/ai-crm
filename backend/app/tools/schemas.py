@@ -38,6 +38,16 @@ class LogInteractionArgs(BaseModel):
     follow_up_date: str | None = Field(default=None, description="ISO date for the next follow-up, if mentioned")
     next_action: str | None = Field(default=None, description="Planned next action")
     notes: str | None = Field(default=None, description="Any other free-form notes")
+    new_hcp_hospital: str | None = Field(
+        default=None,
+        description="Only set this if hcp_name was NOT found in an earlier turn and the user has now "
+        "given you the hospital/clinic name for a brand-new HCP. Providing this (with city and/or "
+        "specialization if known) will create the HCP record and log the visit in this same call.",
+    )
+    new_hcp_city: str | None = Field(default=None, description="City for a brand-new HCP being created, if given")
+    new_hcp_specialization: str | None = Field(
+        default=None, description="Specialization for a brand-new HCP being created, if given"
+    )
 
     @field_validator("products_discussed", mode="before")
     @classmethod

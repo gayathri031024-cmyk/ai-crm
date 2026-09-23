@@ -18,6 +18,7 @@ from app.models.interaction import CreatedVia, Interaction, InteractionType, Sen
 from app.models.interaction_history import ChangeSource
 from app.repositories.hcp_repository import HCPRepository
 from app.repositories.interaction_repository import InteractionRepository
+from app.schemas.hcp import HCPCreate
 from app.schemas.interaction import InteractionCreate, InteractionUpdate
 from app.services.interaction_service import InteractionService
 from app.tools.hcp_resolver import resolve_hcp_by_name
@@ -56,8 +57,24 @@ def log_interaction(db: Session, user_id: str, args: LogInteractionArgs) -> dict
     resolution = resolve_hcp_by_name(db, args.hcp_name)
     if resolution.needs_clarification:
         return _clarification_response(resolution.candidates)
+
+    hcp = resolution.hcp
     if resolution.not_found:
-        return _not_found_response(args.hcp_name)
+        # Only create a brand-new HCP if the caller actually gave us something to
+        # create beyond just the name — otherwise fall back to asking, as before.
+        if args.new_hcp_hospital or args.new_hcp_city or args.new_hcp_specialization:
+            hcp_repo = HCPRepository(db)
+            hcp = hcp_repo.create(
+                HCPCreate(
+                    full_name=args.hcp_name,
+                    hospital_name=args.new_hcp_hospital,
+                    city=args.new_hcp_city,
+                    specialization=args.new_hcp_specialization,
+                ),
+                created_by=user_id,
+            )
+        else:
+            return _not_found_response(args.hcp_name)
 
     visit_date_str = resolve_date_phrase(args.visit_date) or args.visit_date
     try:
@@ -92,7 +109,7 @@ def log_interaction(db: Session, user_id: str, args: LogInteractionArgs) -> dict
 
     service = InteractionService(db)
     create_data = InteractionCreate(
-        hcp_id=resolution.hcp.id,
+        hcp_id=hcp.id,
         interaction_type=interaction_type,
         visit_date=visit_dt,
         follow_up_date=follow_up,
@@ -106,7 +123,9 @@ def log_interaction(db: Session, user_id: str, args: LogInteractionArgs) -> dict
     )
     interaction = service.create_interaction(create_data, user_id=user_id)
 
-    summary_bits = [f"Logged a {interaction_type.value} with {resolution.hcp.full_name}"]
+    summary_bits = [f"Logged a {interaction_type.value} with {hcp.full_name}"]
+    if resolution.not_found:
+        summary_bits[0] = f"Created a new HCP record for {hcp.full_name} and logged a {interaction_type.value}"
     if args.products_discussed:
         summary_bits.append(f"discussing {', '.join(args.products_discussed)}")
     if args.samples_given:
@@ -119,8 +138,9 @@ def log_interaction(db: Session, user_id: str, args: LogInteractionArgs) -> dict
         "message": " ".join(summary_bits) + ".",
         "data": {
             "interaction_id": interaction.id,
-            "hcp_id": resolution.hcp.id,
-            "hcp_name": resolution.hcp.full_name,
+            "hcp_id": hcp.id,
+            "hcp_name": hcp.full_name,
+            "new_hcp_created": resolution.not_found,
             "interaction_type": interaction_type.value,
             "visit_date": visit_dt.isoformat(),
             "follow_up_date": follow_up.isoformat() if follow_up else None,

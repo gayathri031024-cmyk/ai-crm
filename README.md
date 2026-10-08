@@ -100,11 +100,3 @@ For the frontend:
 VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
-## Status
-
-Active development.
-
-```
-
-**That's enough.** Don't add deployment details, architecture diagrams, or complicated explanations right now.
-```

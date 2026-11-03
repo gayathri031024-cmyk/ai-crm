@@ -1,20 +1,28 @@
-# Environment files
+# Environment files (never commit secrets)
+.env
+.env.*
+!.env.example
 backend/.env
 frontend/.env
 
 # Python
-backend/venv/
 venv/
+.venv/
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Node
-frontend/node_modules/
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Logs
+*.log
 npm-debug.log*
+server_log.txt
 
-# VS Code
+# OS / editor
+.DS_Store
 .vscode/
+.idea/

@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.interaction import CreatedVia, Interaction
+from app.models.interaction import CreatedVia, Interaction, Sentiment
 from app.models.interaction_history import ChangeSource, InteractionHistory
 from app.repositories.hcp_repository import HCPRepository
 from app.repositories.interaction_repository import InteractionRepository
@@ -115,7 +115,14 @@ class InteractionService:
         )
 
     def dashboard_counts(self, user_id: str | None = None) -> dict:
+        query = self.db.query(Interaction)
+        if user_id:
+            query = query.filter(Interaction.user_id == user_id)
+        total = query.count()
+        positive = query.filter(Interaction.sentiment == Sentiment.positive).count()
         return {
             "todays_visits": self.repo.today_visits_count(user_id),
             "pending_follow_ups": self.repo.pending_follow_ups_count(user_id),
+            "total_interactions": total,
+            "positive_sentiment_pct": round(positive * 100 / total) if total else 0,
         }

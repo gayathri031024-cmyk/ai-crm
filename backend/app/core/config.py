@@ -39,8 +39,8 @@ class Settings(BaseSettings):
 
     # --- Groq / AI ---
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
-    primary_model: str = Field(default="gemma2-9b-it", alias="PRIMARY_MODEL")
-    backup_model: str = Field(default="llama-3.3-70b-versatile", alias="BACKUP_MODEL")
+    primary_model: str = Field(default="llama-3.3-70b-versatile", alias="PRIMARY_MODEL")
+    backup_model: str = Field(default="openai/gpt-oss-120b", alias="BACKUP_MODEL")
 
     @property
     def cors_origin_list(self) -> List[str]:

@@ -12,7 +12,7 @@ A hard iteration cap prevents infinite tool-calling loops.
 """
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from langgraph.graph import END, StateGraph
 
@@ -27,7 +27,7 @@ MAX_TOOL_ITERATIONS = 4
 SYSTEM_PROMPT = """You are an intelligent CRM assistant helping a pharmaceutical sales \
 representative log and manage their interactions with healthcare professionals (HCPs).
 
-Today's date is {today}.
+Today is {today}. Upcoming dates for reference: {calendar}.
 
 You have exactly five tools. Use them whenever the user's intent matches, even if they \
 don't ask for a tool by name:
@@ -44,7 +44,8 @@ visits with Dr. Smith" or "what's the history with this HCP?"
 
 Rules:
 - Resolve relative dates yourself ("today", "next Friday", "tomorrow") into ISO dates \
-(YYYY-MM-DD) before calling any tool — don't pass the phrase through unresolved.
+(YYYY-MM-DD) before calling any tool — don't pass the phrase through unresolved. Use the \
+upcoming-dates list above: "next Friday" means the first Friday in that list.
 - If a tool tells you it needs clarification (e.g. ambiguous or unknown HCP name), ask the \
 user directly instead of guessing.
 - After a tool succeeds, confirm what you did in one short, friendly sentence. Don't repeat \
@@ -55,10 +56,30 @@ confidently.
 """
 
 
+# India Standard Time (fixed offset, so no tzdata package is needed on Windows).
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _now_ist() -> datetime:
+    return datetime.now(_IST)
+
+
+def _today_label() -> str:
+    now = _now_ist()
+    return f"{now.strftime('%A')} {now.date().isoformat()}"
+
+
+def _calendar_hint() -> str:
+    """Next 14 days with weekday names, so the model never has to do date arithmetic."""
+    start = _now_ist().date()
+    days = [start + timedelta(days=i) for i in range(1, 15)]
+    return ", ".join(f"{d.strftime('%a')} {d.isoformat()}" for d in days)
+
+
 def _build_system_message() -> dict:
     return {
         "role": "system",
-        "content": SYSTEM_PROMPT.format(today=datetime.utcnow().date().isoformat()),
+        "content": SYSTEM_PROMPT.format(today=_today_label(), calendar=_calendar_hint()),
     }
 
 
@@ -71,7 +92,10 @@ def _agent_node(state: AgentState, config: dict) -> dict:
     if not messages or messages[0].get("role") != "system":
         messages = [_build_system_message()] + messages
 
-    tool_defs = build_groq_tool_definitions()
+    # Once the tool-loop cap is reached, call the model WITHOUT tools so it must
+    # answer in plain text (otherwise the turn can end on an empty tool-call message).
+    reached_cap = state.get("iterations", 0) >= MAX_TOOL_ITERATIONS
+    tool_defs = None if reached_cap else build_groq_tool_definitions()
     message, model_used = groq_client.chat_completion(messages=messages, tools=tool_defs)
 
     assistant_msg = {
@@ -123,7 +147,8 @@ def _tools_node(state: AgentState, config: dict) -> dict:
 
 def _route_after_agent(state: AgentState) -> str:
     last_message = state["messages"][-1]
-    if last_message.get("tool_calls") and state.get("iterations", 0) < MAX_TOOL_ITERATIONS:
+    # Every tool call must be executed so the stored history stays valid for the next turn.
+    if last_message.get("tool_calls"):
         return "tools"
     return END
 

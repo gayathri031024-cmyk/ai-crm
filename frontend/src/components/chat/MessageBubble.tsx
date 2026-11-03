@@ -29,6 +29,11 @@ export default function MessageBubble({ message, toolSuccess }: MessageBubblePro
     );
   }
 
+  // Assistant turns that only contain tool calls have no text; don't render empty bubbles.
+  if (!isUser && !message.content?.trim()) {
+    return null;
+  }
+
   if (toolSuccess) {
     return (
       <Box sx={{ display: "flex", justifyContent: "flex-start", mb: 1.5 }}>

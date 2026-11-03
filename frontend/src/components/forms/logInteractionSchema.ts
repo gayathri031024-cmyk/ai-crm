@@ -26,10 +26,17 @@ export const logInteractionSchema = z
 
 export type LogInteractionFormValues = z.infer<typeof logInteractionSchema>;
 
+// datetime-local needs local time (toISOString() would give UTC and show the wrong hour).
+const nowLocalInputValue = (): string => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
+
 export const DEFAULT_FORM_VALUES: LogInteractionFormValues = {
   hcp_id: "",
   interaction_type: "visit",
-  visit_date: new Date().toISOString().slice(0, 16),
+  visit_date: nowLocalInputValue(),
   follow_up_date: "",
   discussion_summary: "",
   products_discussed: [],

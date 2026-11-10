@@ -12,9 +12,12 @@ settings = get_settings()
 
 engine = create_engine(
     settings.database_url,
-    pool_pre_ping=True,   # avoids "MySQL server has gone away" on idle connections
+    pool_pre_ping=True,
     pool_recycle=3600,
     echo=(settings.app_env == "development"),
+    connect_args={
+        "ssl": {}
+    },
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
